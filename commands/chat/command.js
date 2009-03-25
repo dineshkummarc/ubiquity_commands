@@ -1,66 +1,85 @@
 Components.utils.import('resource://xmpp4moz/xmpp.jsm');
+Components.utils.import('resource://xmpp4moz/namespaces.jsm');
+var srvIO = Cc['@mozilla.org/network/io-service;1']
+    .getService(Ci.nsIIOService);
+
 var $ = jQuery;
-// Noun 
+
 var Contact = {
     _name : 'contact',
+
     get contacts() {
-        var nm = new Namespace('jabber:iq:roster');
-        var users = XMPP.cache.all(
-           XMPP.q().
-               event('iq').
-               direction('in').
-               type('result').
-               child('jabber:iq:roster', 'query'));
+        var rosters = XMPP.cache.all(
+            XMPP.q()
+                .event('iq')
+                .direction('in')
+                .type('result')
+                .child(ns_roster, 'query'));
+
         var contacts = [];
-        for each (var user in users) {
-            var userContacts = user.stanza.nm::query.nm::item;
-            for each(var contact in userContacts) {
+        for each(var roster in rosters) {
+            for each(var item in roster.stanza..ns_roster::item) {
                 contacts.push({
-                    owner : user.account,
-                    jid : contact.@jid,
-                    name : contact.@name
+                    account : roster.account,
+                    address : item.@jid.toString(),
+                    name    : item.@name.toString()
                 });
             }
         }
         return contacts;
     },
-    suggest : function(text, html, makeSuggestion) {
-        var filter = new RegExp('[\s\S]*' + text + '[\s\S]*','i');
-        return this.contacts.filter(function(contact) {
-            return filter.test(contact.name);
-        }).map(function(contact){
-            return {
-                text : contact.name + ' (' + contact.owner + ')',
-                summary : contact.name + ' (' + contact.owner + ')',
-                html : contact.name + ' (' + contact.owner + ')',
-                data : contact
-            }
-        });
+
+    suggest: function(text, html, makeSuggestion) {
+        text = text.toLowerCase();
+
+        return this.contacts
+            .filter(function(contact) {
+                return (contact.name.toLowerCase().indexOf(text) != -1 ||
+                        contact.address.toLowerCase().indexOf(text) != -1);
+            })
+            .map(function(contact) {
+                return {
+                    text    : contact.name || contact.address,
+                    summary : contact.name || XMPP.JID(contact.address).node,
+                    html    : contact.name,
+                    data    : contact
+                }
+            });
     }
 };
 
-// Command Chat
 CmdUtils.CreateCommand({
-    name: "chat",
-    icon: "http://www.sameplace.cc/files/zen-sameplace_favicon.png",
-    description: "Helps you to communicate with your conatcts at same place",
-    author: { name: "Irakli Gozalishvili", email: "rfobic@gmail.com"},
+    name: 'chat',
+    icon: 'chrome://sameplace/skin/logo16x16.png',
+    description: 'Helps you to communicate with your contacts in SamePlace',
+    author: { name: 'Irakli Gozalishvili', email: 'rfobic@gmail.com'},
+    contributors: [ 'Massimiliano Mirra' ],
     homepage: 'http://rfobic.wordpress.com/',
-    help: 'Type open and contact name to send a message',
-    takes: {"contact": Contact},
-    
+    help: 'Type "chat" and contact name to open a chat',
+    takes: {'contact': Contact},
+
     preview: function(pblock, noun, modifiers) {
-        pblock.innerHTML =
-        <div>
-            {'will open chat with ' + noun.text}
-        </div>
+        var name = noun.data.name || XMPP.JID(noun.data.address).node;
+        var account = noun.data.account;
+        var address = noun.data.address;
+
+        var presence = XMPP.presencesOf(account, address)[0];
+        var imgUrl;
+        if(!presence || presence.stanza.@type == 'unavailable')
+            imgUrl = 'chrome://sameplace/skin/status16x16-unavailable.png';
+        else if(presence.stanza.show == 'away')
+            imgUrl = 'chrome://sameplace/skin/status16x16-away.png';
+        else if(presence.stanza.show == 'dnd')
+            imgUrl = 'chrome://sameplace/skin/status16x16-dnd.png';
+        else if(presence.stanza.@type == undefined)
+            imgUrl = 'chrome://sameplace/skin/status16x16-available.png';
+
+        pblock.innerHTML = <div>Open chat with <img src={imgUrl}/>{name} (<em>{address}</em>)</div>;
     },
 
     execute: function(noun) {
-        displayMessage({
-            title : 'SamePlace',
-            text : 'Max has data here : ' + noun.toSource(),
-            icon : this.icon
-        });
+        srvIO.newChannel('xmpp://' + noun.data.account + '/' + noun.data.address,
+                         null, null)
+            .asyncOpen(null, null);
     }
 });
