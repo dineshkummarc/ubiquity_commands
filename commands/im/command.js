@@ -49,13 +49,13 @@ var Contact = {
 };
 
 CmdUtils.CreateCommand({
-    name: 'chat',
+    name: 'im',
     icon: 'chrome://sameplace/skin/logo16x16.png',
-    description: 'Helps you to communicate with your contacts in SamePlace',
+    description: 'Open chat in SamePlace',
     author: { name: 'Irakli Gozalishvili', email: 'rfobic@gmail.com'},
     contributors: [ 'Massimiliano Mirra' ],
     homepage: 'http://rfobic.wordpress.com/',
-    help: 'Type "chat" and contact name to open a chat',
+    help: 'Type "im" and contact name to open a chat',
     takes: {'contact': Contact},
 
     preview: function(pblock, noun, modifiers) {
@@ -66,13 +66,13 @@ CmdUtils.CreateCommand({
         var presence = XMPP.presencesOf(account, address)[0];
         var imgUrl;
         if(!presence || presence.stanza.@type == 'unavailable')
-            imgUrl = 'chrome://sameplace/skin/status16x16-unavailable.png';
+            imgUrl = 'resource://sameplace/icons/status16x16-unavailable.png';
         else if(presence.stanza.show == 'away')
-            imgUrl = 'chrome://sameplace/skin/status16x16-away.png';
+            imgUrl = 'resource://sameplace/icons/status16x16-away.png';
         else if(presence.stanza.show == 'dnd')
-            imgUrl = 'chrome://sameplace/skin/status16x16-dnd.png';
+            imgUrl = 'resource://sameplace/icons/status16x16-dnd.png';
         else if(presence.stanza.@type == undefined)
-            imgUrl = 'chrome://sameplace/skin/status16x16-available.png';
+            imgUrl = 'resource://sameplace/icons/status16x16-available.png';
 
         pblock.innerHTML = <div>Open chat with <img src={imgUrl}/>{name} (<em>{address}</em>)</div>;
     },
